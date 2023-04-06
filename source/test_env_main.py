@@ -4,7 +4,7 @@ import time
 import numpy as np
 import keyboard
 
-env = GridWorldEnv(render_mode="human", size=10)#gym.make("gym_examples/GridWorld-v0")
+env = GridWorldEnv(render_mode=None, size=10)#gym.make("gym_examples/GridWorld-v0")
 env.reset()
 
 while True:

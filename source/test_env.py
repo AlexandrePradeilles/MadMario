@@ -54,42 +54,54 @@ class GridWorldEnv(gym.Env):
 
         self.pre_obs = [np.array([self.size-1, self.size, -self.size, 0])]
 
+        self.stones = []
+        self.ground = []
+        self.pipes = []
 
-        obstacles_1 = [np.array([self.size-1, self.size, 0, self.size]), np.array([self.size-3, self.size-2.5, 5, 5.5]),
+
+        self.ground += [np.array([self.size-1, self.size, 0, self.size])]
+        self.stones += [np.array([self.size-3, self.size-2.5, 5, 5.5]),
                        np.array([self.size-3, self.size-2.5, 7, 9.5]), np.array([self.size-5, self.size-4.5, 8, 8.5])]
         
         step = self.size
-        obstacles_2 = [np.array([self.size-1, self.size, 0+step, self.size+step]), np.array([self.size-2, self.size-1, step+1, step+2])]
-        step += self.size
-        obstacles_3 = [np.array([self.size-1, self.size, 0+step, self.size+step]), np.array([self.size-2.5, self.size-1, step+1, step+2])]
+        self.ground += [np.array([self.size-1, self.size, 0+step, self.size+step])]
+        self.pipes += [np.array([self.size-2, self.size-1, step+1, step+2])]
 
         step += self.size
-        obstacles_4 = [np.array([self.size-1, self.size, 0+step, self.size+step-2]), np.array([self.size-3, self.size-1, step+1, step+2])]
+        self.ground += [np.array([self.size-1, self.size, 0+step, self.size+step])]
+        self.pipes += [np.array([self.size-2.5, self.size-1, step+1, step+2])]
 
         step += self.size
-        obstacles_5 = [np.array([self.size-1, self.size, 0+step, 8.5+step]), np.array([self.size-3, self.size-2.5, 4+step, 5.5+step]),
+        self.ground += [np.array([self.size-1, self.size, 0+step, self.size+step-2])]
+        self.pipes += [np.array([self.size-3, self.size-1, step+1, step+2])]
+
+        step += self.size
+        self.ground += [np.array([self.size-1, self.size, 0+step, 8.5+step])]
+        self.stones += [np.array([self.size-3, self.size-2.5, 4+step, 5.5+step]),
                        np.array([self.size-5, self.size-4.5, 5.5+step, 9+step])]
         
         step += self.size
-        obstacles_6 = [np.array([self.size-1, self.size, 0.5+step, self.size+step]), np.array([self.size-3, self.size-2.5, 3.5+step, 4+step]),
-                       np.array([self.size-5, self.size-4.5, 2+step, 4+step]), np.array([self.size-3, self.size-2.5, 6.5+step, 7.5+step]),
-                       np.array([self.size-3, self.size-2.5, 9.5+step, 10+step])]
+        self.ground += [np.array([self.size-1, self.size, 0.5+step, self.size+step])]
+        self.stones += [np.array([self.size-3, self.size-2.5, 3.5+step, 4+step]), np.array([self.size-3, self.size-2.5, 9.5+step, 10+step]),
+                       np.array([self.size-5, self.size-4.5, 2+step, 4+step]), np.array([self.size-3, self.size-2.5, 6.5+step, 7.5+step])]
         
         step += self.size
-        obstacles_7 = [np.array([self.size-1, self.size, step, self.size+step]), np.array([self.size-3, self.size-2.5, 1+step, 1.5+step]),
+        self.ground += [np.array([self.size-1, self.size, step, self.size+step])]
+        self.stones += [np.array([self.size-3, self.size-2.5, 1+step, 1.5+step]),
                        np.array([self.size-5, self.size-4.5, 1+step, 1.5+step]), np.array([self.size-3, self.size-2.5, 2.5+step, 3+step]),
                        np.array([self.size-3, self.size-2.5, 5+step, 5.5+step]), np.array([self.size-5, self.size-4.5, 6.5+step, 8+step])]
 
         step += self.size
-        obstacles_8 = [np.array([self.size-1, self.size, step, self.size+step]), np.array([self.size-3, self.size-2.5, 0.5+step, 1.5+step]),
+        self.ground += [np.array([self.size-1, self.size, step, self.size+step])]
+        self.stones += [np.array([self.size-3, self.size-2.5, 0.5+step, 1.5+step]), np.array([self.size-3, self.size-1, 6+step, 6.5+step]),
                        np.array([self.size-5, self.size-4.5, step, 2+step]), np.array([self.size-1.5, self.size-1, 3+step, 3.5+step]),
                        np.array([self.size-2, self.size-1, 3.5+step, 4+step]), np.array([self.size-2.5, self.size-1, 4+step, 4.5+step]),
                        np.array([self.size-3, self.size-1, 4.5+step, 5+step]), np.array([self.size-1.5, self.size-1, 7.5+step, 8+step]),
-                       np.array([self.size-2, self.size-1, 7+step, 7.5+step]), np.array([self.size-2.5, self.size-1, 6.5+step, 7+step]),
-                       np.array([self.size-3, self.size-1, 6+step, 6.5+step])]
+                       np.array([self.size-2, self.size-1, 7+step, 7.5+step]), np.array([self.size-2.5, self.size-1, 6.5+step, 7+step]),]
         
         step += self.size
-        obstacles_9 = [np.array([self.size-1, self.size, step, 2.5+step]), np.array([self.size-1, self.size, 4+step, self.size+step]), np.array([self.size-1.5, self.size-1, step, 0.5+step]),
+        self.ground += [np.array([self.size-1, self.size, step, 2.5+step])]
+        self.stones += [np.array([self.size-1, self.size, step, 2.5+step]), np.array([self.size-1, self.size, 4+step, self.size+step]), np.array([self.size-1.5, self.size-1, step, 0.5+step]),
                        np.array([self.size-2, self.size-1, 0.5+step, 1+step]), np.array([self.size-2.5, self.size-1, 1+step, 1.5+step]),
                        np.array([self.size-3, self.size-1, 1.5+step, 2+step]), np.array([self.size-3, self.size-1, 2+step, 2.5+step]),
                        np.array([self.size-1.5, self.size-1, 5.5+step, 6+step]),
@@ -97,19 +109,21 @@ class GridWorldEnv(gym.Env):
                        np.array([self.size-3, self.size-1, 4+step, 4.5+step]), np.array([self.size-2, self.size-1, step+8, step+9])]
 
         step += self.size
-        obstacles_10 = [np.array([self.size-1, self.size, step, self.size+step]), np.array([self.size-3, self.size-2.5, 0.5+step, 2.5+step]),
-                       np.array([self.size-2, self.size-1, 6+step, 7+step]), np.array([self.size-1.5, self.size-1, 7+step, 7.5+step]),
+        self.ground += [np.array([self.size-1, self.size, step, self.size+step])]
+        self.pipes += [np.array([self.size-2, self.size-1, 6+step, 7+step])]
+        self.stones += [np.array([self.size-3, self.size-2.5, 0.5+step, 2.5+step]), np.array([self.size-1.5, self.size-1, 7+step, 7.5+step]),
                        np.array([self.size-2, self.size-1, 7.5+step, 8+step]),np.array([self.size-2.5, self.size-1, 8+step, 8.5+step]),
                        np.array([self.size-3, self.size-1, 8.5+step, 9+step]),np.array([self.size-3.5, self.size-1, 9+step, 9.5+step]),
                        np.array([self.size-4, self.size-1, 9.5+step, 10+step])]
         
         step += self.size
-        obstacles_11 = [np.array([self.size-1, self.size, step, self.size+step]), np.array([self.size-4.5, self.size-1, step, 0.5+step]),
+        self.ground += [np.array([self.size-1, self.size, step, self.size+step])]
+        self.stones += [np.array([self.size-4.5, self.size-1, step, 0.5+step]),
                        np.array([self.size-5, self.size-1, 0.5+step, 1+step]),np.array([self.size-5.5, self.size-1, 1+step, 1.5+step]),
                        np.array([0, self.size-1, 9.5+step, 10+step])]
 
 
-        self.obstacles = obstacles_1 + obstacles_2 + obstacles_3 + obstacles_4 + obstacles_5 + obstacles_6 + obstacles_7 + obstacles_8 + obstacles_9 + obstacles_10 + obstacles_11
+        self.obstacles = self.ground + self.stones + self.pipes
 
         self.monsters = [Monster(self.size-1.6, 7, self.obstacles), Monster(self.size-1.6, self.size+7, self.obstacles), Monster(self.size-1.6, 2*self.size+7, self.obstacles), Monster(self.size-1.6, 2*self.size+7.5, self.obstacles),
                          Monster(self.size-5.6, 4*self.size+5.5, self.obstacles), Monster(self.size-5.6, 4*self.size+6.5, self.obstacles),
@@ -124,7 +138,8 @@ class GridWorldEnv(gym.Env):
 
 
     def _get_obs(self):
-        return {"agent": self._agent_location, "target": self._target_location}
+        return self._render_frame()
+    
     
     def _get_info(self):
         return {
@@ -247,9 +262,6 @@ class GridWorldEnv(gym.Env):
         self._agent_location = np.clip(
             self._agent_location + direction, 0, 200*self.size
         )
-        # if self._agent_location[1] == 0:
-        #     self.vert_speed = 0
-        # else:
         self.vert_speed += 10*0.06*self.ratio
 
         reward =  0  # Binary sparse rewards
@@ -265,14 +277,14 @@ class GridWorldEnv(gym.Env):
         if self.terminated:
             self.reset()
 
-        return observation, reward, self.terminated, False, info
+        return observation, reward, self.terminated, info
 
 
     def render(self):
         if self.render_mode == "rgb_array":
             return self._render_frame()
 
-    def _render_frame(self):
+    def _render_frame(self, have_state=False):
         if self.window is None and self.render_mode == "human":
             pygame.init()
             pygame.display.init()
@@ -305,10 +317,24 @@ class GridWorldEnv(gym.Env):
                     canvas.blit(ground, ((l - self._agent_location[0] + self.size/2)*pix_square_size, h*pix_square_size))
 
 
-        for obstacle in self.obstacles:
+        for obstacle in self.ground:
             for h in np.arange(obstacle[0], obstacle[1]-0.1, 0.5):
                 for l in np.arange(obstacle[2], obstacle[3]-0.1, 0.5):
                     canvas.blit(ground, ((l - self._agent_location[0] + self.size/2)*pix_square_size, h*pix_square_size))
+
+        stone = pygame.image.load("./source/stone.png")
+        stone = pygame.transform.scale(stone, (pix_square_size / 2, pix_square_size / 2))
+        for obstacle in self.stones:
+            for h in np.arange(obstacle[0], obstacle[1]-0.1, 0.5):
+                for l in np.arange(obstacle[2], obstacle[3]-0.1, 0.5):
+                    canvas.blit(stone, ((l - self._agent_location[0] + self.size/2)*pix_square_size, h*pix_square_size))
+
+        for obstacle in self.pipes:
+            pipe = pygame.image.load("./source/pipes.png")
+            pipe = pygame.transform.scale(pipe, (pix_square_size*(obstacle[3] - obstacle[2]), pix_square_size*(obstacle[1] - obstacle[0])))
+            canvas.blit(pipe, ((obstacle[2] - self._agent_location[0] + self.size/2)*pix_square_size, obstacle[0]*pix_square_size))
+                
+
 
 
         champi = pygame.image.load("./source/champi.png")
@@ -316,7 +342,9 @@ class GridWorldEnv(gym.Env):
         for monster in self.monsters:
             canvas.blit(champi, ((monster.left - self._agent_location[0] + self.size/2)*pix_square_size, monster.top*pix_square_size))
         
-
+        self.canvas = np.transpose(
+                np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2)
+            )
 
         if self.render_mode == "human":
             # The following line copies our drawings from `canvas` to the visible window
