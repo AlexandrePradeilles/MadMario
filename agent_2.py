@@ -2,7 +2,7 @@ import torch
 import random, numpy as np
 from pathlib import Path
 
-from neural import MarioNet
+from neural_2 import MarioNet
 from collections import deque
 
 
@@ -10,20 +10,20 @@ class Mario:
     def __init__(self, state_dim, action_dim, save_dir, checkpoint=None):
         self.state_dim = state_dim
         self.action_dim = action_dim
-        self.memory = deque(maxlen=10000)
+        self.memory = deque(maxlen=32)
         self.batch_size = 32
 
         self.exploration_rate = 1
         self.exploration_rate_decay =  0.999999# 0.99999975
-        self.exploration_rate_min = 0.05
+        self.exploration_rate_min = 0.1
         self.gamma = 0.9
 
         self.curr_step = 0
-        self.burnin = 1e2  # min. experiences before training
-        self.learn_every = 3   # no. of experiences between updates to Q_online
-        self.sync_every = 1e4   # no. of experiences between Q_target & Q_online sync
+        self.burnin = 0 #1e4  # min. experiences before training
+        self.learn_every = 32   # no. of experiences between updates to Q_online
+        self.sync_every = 0  #1e3   # no. of experiences between Q_target & Q_online sync
 
-        self.save_every = 1e5   # no. of experiences between saving Mario Net
+        self.save_every = 5e5   # no. of experiences between saving Mario Net
         self.save_dir = save_dir
 
         self.use_cuda = torch.cuda.is_available()
@@ -35,39 +35,22 @@ class Mario:
         if checkpoint:
             self.load(checkpoint)
 
-        self.optimizer = torch.optim.Adam(self.net.parameters(), lr=0.00025)
+        self.optimizer = torch.optim.Adam(self.net.parameters(), lr=0.00001)
         self.loss_fn = torch.nn.SmoothL1Loss()
 
 
-    def act(self, state):
-        """
-        Given a state, choose an epsilon-greedy action and update value of step.
-
-        Inputs:
-        state(LazyFrame): A single observation of the current state, dimension is (state_dim)
-        Outputs:
-        action_idx (int): An integer representing which action Mario will perform
-        """
-        # EXPLORE
-        if np.random.rand() < self.exploration_rate:
-            action_idx = np.random.randint(self.action_dim)
-
-        # EXPLOIT
-        else:
-            state = torch.FloatTensor(state).cuda() if self.use_cuda else torch.FloatTensor(state)
-            state = state.unsqueeze(0)
-            action_values = self.net(state, model='online')
-            action_idx = torch.argmax(action_values, axis=1).item()
+    def act(self, state, deterministic=False):
+        state = np.array(state)
+        action, log_prob = self.net.act(state, deterministic)
 
         # decrease exploration_rate
         self.exploration_rate *= self.exploration_rate_decay
         self.exploration_rate = max(self.exploration_rate_min, self.exploration_rate)
 
-        # increment step
         self.curr_step += 1
-        return action_idx
+        return action, log_prob
 
-    def cache(self, state, next_state, action, reward, done):
+    def cache(self, state, next_state, action, reward, done, log_prob):
         """
         Store the experience to self.memory (replay buffer)
 
@@ -84,7 +67,7 @@ class Mario:
         reward = torch.DoubleTensor([reward]).cuda() if self.use_cuda else torch.DoubleTensor([reward])
         done = torch.BoolTensor([done]).cuda() if self.use_cuda else torch.BoolTensor([done])
 
-        self.memory.append( (state, next_state, action, reward, done,) )
+        self.memory.append( (state, next_state, action, reward, done, log_prob) )
 
 
     def recall(self):
@@ -92,39 +75,11 @@ class Mario:
         Retrieve a batch of experiences from memory
         """
         batch = random.sample(self.memory, self.batch_size)
-        state, next_state, action, reward, done = map(torch.stack, zip(*batch))
-        return state, next_state, action.squeeze(), reward.squeeze(), done.squeeze()
-
-
-    def td_estimate(self, state, action):
-        current_Q = self.net(state, model='online')[np.arange(0, self.batch_size), action] # Q_online(s,a)
-        return current_Q
-
-
-    @torch.no_grad()
-    def td_target(self, reward, next_state, done):
-        next_state_Q = self.net(next_state, model='online')
-        best_action = torch.argmax(next_state_Q, axis=1)
-        next_Q = self.net(next_state, model='target')[np.arange(0, self.batch_size), best_action]
-        return (reward + (1 - done.float()) * self.gamma * next_Q).float()
-
-
-    def update_Q_online(self, td_estimate, td_target) :
-        loss = self.loss_fn(td_estimate, td_target)
-        self.optimizer.zero_grad()
-        loss.backward()
-        self.optimizer.step()
-        return loss.item()
-
-
-    def sync_Q_target(self):
-        self.net.target.load_state_dict(self.net.online.state_dict())
+        state, next_state, action, reward, done, log_prob = map(torch.stack, zip(*batch))
+        return state, next_state, action.squeeze(), reward.squeeze(), done.squeeze(), log_prob.squeeze()
 
 
     def learn(self):
-        if self.curr_step % self.sync_every == 0:
-            self.sync_Q_target()
-
         if self.curr_step % self.save_every == 0:
             self.save()
 
@@ -135,18 +90,32 @@ class Mario:
             return None, None
 
         # Sample from memory
-        state, next_state, action, reward, done = self.recall()
+        state, next_state, action, rewards, done, log_probs = self.recall()
 
-        # Get TD Estimate
-        td_est = self.td_estimate(state, action)
+        returns = deque(maxlen=self.batch_size)
 
-        # Get TD Target
-        td_tgt = self.td_target(reward, next_state, done)
+        for t in range(self.batch_size)[::-1]:
+            disc_return_t = returns[0] if len(returns) > 0 else 0
+            returns.appendleft(self.gamma * disc_return_t + rewards[t])
 
-        # Backpropagate loss through Q_online
-        loss = self.update_Q_online(td_est, td_tgt)
+        ## standardization of the returns to make training more stable
+        eps = np.finfo(np.float32).eps.item()
+        returns = torch.tensor(returns, dtype=torch.float)
+        returns = (returns - returns.mean()) / (returns.std() + eps)
 
-        return (td_est.mean().item(), loss)
+        # Compute loss
+        policy_loss = []
+        for log_prob, disc_return in zip(log_probs, returns):
+            policy_loss.append(-log_prob * disc_return)
+        policy_loss =  torch.stack(policy_loss)
+        policy_loss = policy_loss.sum()
+
+        # Policy update
+        self.optimizer.zero_grad()
+        policy_loss.backward()
+        self.optimizer.step()
+
+        return (0, policy_loss.item())
 
 
     def save(self):

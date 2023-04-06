@@ -11,20 +11,18 @@ from nes_py.wrappers import JoypadSpace
 from gym_super_mario_bros.actions import RIGHT_ONLY, SIMPLE_MOVEMENT, COMPLEX_MOVEMENT
 
 from metrics import MetricLogger
-import torch
 from agent import Mario
 from wrappers import ResizeObservation, SkipFrame
 
 # Initialize Super Mario environment
-env = gym_super_mario_bros.make('SuperMarioBros-2-1-v0')
+env = gym_super_mario_bros.make('SuperMarioBros-1-1-v0')
 
 # Limit the action-space to
 #   0. walk right
 #   1. jump right
 env = JoypadSpace(
     env,
-    [['right'],
-    ['right', 'A']]
+    SIMPLE_MOVEMENT
 )
 
 # Apply Wrappers to environment
@@ -41,11 +39,8 @@ player_status = {'small': 0, 'tall': 1}
 save_dir = Path('checkpoints') / datetime.datetime.now().strftime('%Y-%m-%dT%H-%M-%S')
 save_dir.mkdir(parents=True)
 
-checkpoint = Path('trained_mario.chkpt') # Path('checkpoints/2020-10-21T18-25-27/mario.chkpt')
+checkpoint = None #Path('trained_mario.chkpt') # Path('checkpoints/2020-10-21T18-25-27/mario.chkpt')
 mario = Mario(state_dim=(4, 84, 84), action_dim=env.action_space.n, save_dir=save_dir, checkpoint=checkpoint)
-# mario.exploration_rate = 0.5
-# mario.exploration_rate_decay =  0.999999
-# mario.exploration_rate_min = 0.1
 
 logger = MetricLogger(save_dir)
 
@@ -70,17 +65,18 @@ for e in range(episodes):
         # 5. Agent performs action
         next_state, reward, done, info = env.step(action)
         score, status = info["score"], info["status"]
-        reward += (player_status[status] - player_status[old_status])*30
+        reward += (player_status[status] - player_status[old_status])*100
+        reward += (score - old_score) // 10
         old_score, old_status = score, status
 
         # 6. Remember
         mario.cache(state, next_state, action, reward, done)
 
         # 7. Learn
-        q, loss = mario.learn()
+        q, rnd_loss, loss = mario.learn()
 
         # 8. Logging
-        logger.log_step(reward, loss, q)
+        logger.log_step(reward, loss, q, info["x_pos"])
 
         # 9. Update state
         state = next_state
@@ -92,6 +88,8 @@ for e in range(episodes):
     logger.log_episode()
 
     if e % 20 == 0:
+        for i in range(len(SIMPLE_MOVEMENT)):
+            print("Number of ",i, mario.actions_mem.count(i))
         logger.record(
             episode=e,
             epsilon=mario.exploration_rate,

@@ -8,23 +8,22 @@ import gym
 import gym_super_mario_bros
 from gym.wrappers import FrameStack, GrayScaleObservation, TransformObservation
 from nes_py.wrappers import JoypadSpace
-from gym_super_mario_bros.actions import RIGHT_ONLY, SIMPLE_MOVEMENT, COMPLEX_MOVEMENT
 
 from metrics import MetricLogger
 import torch
-from agent import Mario
+from agent_2 import Mario
 from wrappers import ResizeObservation, SkipFrame
+from gym_super_mario_bros.actions import RIGHT_ONLY, SIMPLE_MOVEMENT, COMPLEX_MOVEMENT
 
 # Initialize Super Mario environment
-env = gym_super_mario_bros.make('SuperMarioBros-2-1-v0')
+env = gym_super_mario_bros.make('SuperMarioBros-1-1-v0')
 
 # Limit the action-space to
 #   0. walk right
 #   1. jump right
 env = JoypadSpace(
     env,
-    [['right'],
-    ['right', 'A']]
+    COMPLEX_MOVEMENT
 )
 
 # Apply Wrappers to environment
@@ -41,15 +40,15 @@ player_status = {'small': 0, 'tall': 1}
 save_dir = Path('checkpoints') / datetime.datetime.now().strftime('%Y-%m-%dT%H-%M-%S')
 save_dir.mkdir(parents=True)
 
-checkpoint = Path('trained_mario.chkpt') # Path('checkpoints/2020-10-21T18-25-27/mario.chkpt')
+checkpoint = None #Path('checkpoints/2023-04-01T13-13-42/mario_net_1.chkpt') # Path('checkpoints/2020-10-21T18-25-27/mario.chkpt')
 mario = Mario(state_dim=(4, 84, 84), action_dim=env.action_space.n, save_dir=save_dir, checkpoint=checkpoint)
-# mario.exploration_rate = 0.5
-# mario.exploration_rate_decay =  0.999999
-# mario.exploration_rate_min = 0.1
+mario.exploration_rate = 0.5
+mario.exploration_rate_decay =  0.999999
+mario.exploration_rate_min = 0.1
 
 logger = MetricLogger(save_dir)
 
-episodes = 10000
+episodes = 30000
 old_status = 'small'
 old_score = 0
 
@@ -65,7 +64,7 @@ for e in range(episodes):
         env.render()
 
         # 4. Run agent on the state
-        action = mario.act(state)
+        action, log_prob = mario.act(state)
 
         # 5. Agent performs action
         next_state, reward, done, info = env.step(action)
@@ -74,7 +73,7 @@ for e in range(episodes):
         old_score, old_status = score, status
 
         # 6. Remember
-        mario.cache(state, next_state, action, reward, done)
+        mario.cache(state, next_state, action, reward, done, log_prob)
 
         # 7. Learn
         q, loss = mario.learn()
