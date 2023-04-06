@@ -112,7 +112,13 @@ class GridWorldEnv(gym.Env):
         self.obstacles = obstacles_1 + obstacles_2 + obstacles_3 + obstacles_4 + obstacles_5 + obstacles_6 + obstacles_7 + obstacles_8 + obstacles_9 + obstacles_10 + obstacles_11
 
         self.monsters = [Monster(self.size-1.6, 7, self.obstacles), Monster(self.size-1.6, self.size+7, self.obstacles), Monster(self.size-1.6, 2*self.size+7, self.obstacles), Monster(self.size-1.6, 2*self.size+7.5, self.obstacles),
-                         Monster(self.size-5.6, 4*self.size+5.5, self.obstacles), Monster(self.size-5.6, 4*self.size+6.5, self.obstacles)]
+                         Monster(self.size-5.6, 4*self.size+5.5, self.obstacles), Monster(self.size-5.6, 4*self.size+6.5, self.obstacles),
+                         Monster(self.size-1.6, 7.5+5*self.size, self.obstacles), Monster(self.size-1.6, 7+5*self.size, self.obstacles),
+                         Monster(self.size-1.6, 6*self.size, self.obstacles), Monster(self.size-1.6, 5+6*self.size, self.obstacles),
+                         Monster(self.size-1.6, 5.5+6*self.size, self.obstacles),
+                         Monster(self.size-1.6, 7*self.size, self.obstacles), Monster(self.size-1.6, 0.5+7*self.size, self.obstacles),
+                         Monster(self.size-1.6, 2+7*self.size, self.obstacles), Monster(self.size-1.6, 2.5+7*self.size, self.obstacles),
+                         Monster(self.size-1.6, 4.5+9*self.size, self.obstacles), Monster(self.size-1.6, 5+9*self.size, self.obstacles)]
         
 
 
