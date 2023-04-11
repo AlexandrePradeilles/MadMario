@@ -100,13 +100,14 @@ class GridWorldEnv(gym.Env):
                        np.array([self.size-2, self.size-1, 7+step, 7.5+step]), np.array([self.size-2.5, self.size-1, 6.5+step, 7+step]),]
         
         step += self.size
-        self.ground += [np.array([self.size-1, self.size, step, 2.5+step])]
-        self.stones += [np.array([self.size-1, self.size, step, 2.5+step]), np.array([self.size-1, self.size, 4+step, self.size+step]), np.array([self.size-1.5, self.size-1, step, 0.5+step]),
+        self.ground += [np.array([self.size-1, self.size, step, 2.5+step]), np.array([self.size-1, self.size, 4+step, self.size+step])]
+        self.stones += [np.array([self.size-1, self.size, step, 2.5+step]), np.array([self.size-1.5, self.size-1, step, 0.5+step]),
                        np.array([self.size-2, self.size-1, 0.5+step, 1+step]), np.array([self.size-2.5, self.size-1, 1+step, 1.5+step]),
                        np.array([self.size-3, self.size-1, 1.5+step, 2+step]), np.array([self.size-3, self.size-1, 2+step, 2.5+step]),
                        np.array([self.size-1.5, self.size-1, 5.5+step, 6+step]),
                        np.array([self.size-2, self.size-1, 5+step, 5.5+step]), np.array([self.size-2.5, self.size-1, 4.5+step, 5+step]),
-                       np.array([self.size-3, self.size-1, 4+step, 4.5+step]), np.array([self.size-2, self.size-1, step+8, step+9])]
+                       np.array([self.size-3, self.size-1, 4+step, 4.5+step])]
+        self.pipes += [np.array([self.size-2, self.size-1, step+8, step+9])]
 
         step += self.size
         self.ground += [np.array([self.size-1, self.size, step, self.size+step])]
@@ -120,7 +121,9 @@ class GridWorldEnv(gym.Env):
         self.ground += [np.array([self.size-1, self.size, step, self.size+step])]
         self.stones += [np.array([self.size-4.5, self.size-1, step, 0.5+step]),
                        np.array([self.size-5, self.size-1, 0.5+step, 1+step]),np.array([self.size-5.5, self.size-1, 1+step, 1.5+step]),
-                       np.array([0, self.size-1, 9.5+step, 10+step])]
+                       np.array([self.size-1.5, self.size-1, 9.5+step, 10+step])]
+        
+        self.flag = [np.array([3, self.size-1.5, 9+step, 10+step])]
 
 
         self.obstacles = self.ground + self.stones + self.pipes
@@ -133,19 +136,11 @@ class GridWorldEnv(gym.Env):
                          Monster(self.size-1.6, 7*self.size, self.obstacles), Monster(self.size-1.6, 0.5+7*self.size, self.obstacles),
                          Monster(self.size-1.6, 2+7*self.size, self.obstacles), Monster(self.size-1.6, 2.5+7*self.size, self.obstacles),
                          Monster(self.size-1.6, 4.5+9*self.size, self.obstacles), Monster(self.size-1.6, 5+9*self.size, self.obstacles)]
-        
 
-
-
-    def _get_obs(self):
-        return self._render_frame()
-    
     
     def _get_info(self):
         return {
-            "distance": np.linalg.norm(
-                self._agent_location - self._target_location, ord=1
-            )
+            "distance": self.max_dist
         }
     
     def update_position(self):
@@ -214,6 +209,7 @@ class GridWorldEnv(gym.Env):
 
         # Choose the agent's location uniformly at random
         self._agent_location = np.array([0, self.size-2])
+        self.max_dist = self._agent_location[0]
         self.update_position()
         self.terminated = False
         for monster in self.monsters:
@@ -225,11 +221,8 @@ class GridWorldEnv(gym.Env):
             self._target_location = self.np_random.integers(
                 0, self.size, size=2, dtype=int
             )
-        observation = self._get_obs()
+        observation = self._render_frame()
         info = self._get_info()
-
-        if self.render_mode == "human":
-            self._render_frame()
 
         return observation, info
 
@@ -264,15 +257,26 @@ class GridWorldEnv(gym.Env):
         )
         self.vert_speed += 10*0.06*self.ratio
 
-        reward =  0  # Binary sparse rewards
-        observation = self._get_obs()
+        if self._agent_location[0] // 5 > self.max_dist // 5:
+            reward = 0.1
+        else:
+            reward =  0  # Binary sparse rewards
+        observation = self._render_frame()
         info = self._get_info()
 
-        if self.render_mode == "human":
-            self._render_frame()
+        self.max_dist = max(self.max_dist, self._agent_location[0])
 
         if self._agent_location[1] >= self.size:
             self.terminated = True
+
+        if self._agent_location[0] >= 10*self.size + 9.5:
+            info["flag"] = True
+        else:
+            info["flag"] = False
+        
+        if info["flag"]:
+            reward = 0.2
+            self.reset()
 
         if self.terminated:
             self.reset()
@@ -281,8 +285,15 @@ class GridWorldEnv(gym.Env):
 
 
     def render(self):
-        if self.render_mode == "rgb_array":
-            return self._render_frame()
+        self.window.blit(self.canvas, self.canvas.get_rect())
+        pygame.event.pump()
+        pygame.display.update()
+
+        # We need to ensure that human-rendering occurs at the predefined framerate.
+        # The following line will automatically add a delay to keep the framerate stable.
+        self.clock.tick(self.metadata["render_fps"])
+        # if self.render_mode == "rgb_array":
+        #     return self._render_frame()
 
     def _render_frame(self, have_state=False):
         if self.window is None and self.render_mode == "human":
@@ -300,13 +311,18 @@ class GridWorldEnv(gym.Env):
         bg = pygame.transform.scale(bg, (self.window_size, self.window_size))
         canvas.blit(bg, (0, 0))
         pix_square_size = (
-            self.window_size / self.size
+            self.window_size / 8 #self.size
         )  # The size of a single grid square in pixels
+
+        for obstacle in self.flag:
+            flag = pygame.image.load("./source/flag.png")
+            flag = pygame.transform.scale(flag, (pix_square_size*(obstacle[3] - obstacle[2]), pix_square_size*(obstacle[1] - obstacle[0])))
+            canvas.blit(flag, ((obstacle[2]-1 - self._agent_location[0] + self.size/2)*pix_square_size, (obstacle[0]-2)*pix_square_size))
 
         # Now we draw the agent
         agent = pygame.image.load("./source/mario.png")
         agent = pygame.transform.scale(agent, (pix_square_size / 2, pix_square_size / 2))
-        canvas.blit(agent, (pix_square_size*self.size/2, pix_square_size*(self._agent_location[1]-0.5)))
+        canvas.blit(agent, (pix_square_size*(self.size/2-1), pix_square_size*(self._agent_location[1]-2.5)))
 
         ground = pygame.image.load("./source/ground.png")
         ground = pygame.transform.scale(ground, (pix_square_size / 2, pix_square_size / 2))
@@ -314,25 +330,25 @@ class GridWorldEnv(gym.Env):
         for obstacle in self.pre_obs:
             for h in np.arange(obstacle[0], obstacle[1]-0.1, 0.5):
                 for l in np.arange(obstacle[2], obstacle[3]-0.1, 0.5):
-                    canvas.blit(ground, ((l - self._agent_location[0] + self.size/2)*pix_square_size, h*pix_square_size))
+                    canvas.blit(ground, ((l - 1 - self._agent_location[0] + self.size/2)*pix_square_size, (h-2)*pix_square_size))
 
 
         for obstacle in self.ground:
             for h in np.arange(obstacle[0], obstacle[1]-0.1, 0.5):
                 for l in np.arange(obstacle[2], obstacle[3]-0.1, 0.5):
-                    canvas.blit(ground, ((l - self._agent_location[0] + self.size/2)*pix_square_size, h*pix_square_size))
+                    canvas.blit(ground, ((l -1 - self._agent_location[0] + self.size/2)*pix_square_size, (h-2)*pix_square_size))
 
         stone = pygame.image.load("./source/stone.png")
         stone = pygame.transform.scale(stone, (pix_square_size / 2, pix_square_size / 2))
         for obstacle in self.stones:
             for h in np.arange(obstacle[0], obstacle[1]-0.1, 0.5):
                 for l in np.arange(obstacle[2], obstacle[3]-0.1, 0.5):
-                    canvas.blit(stone, ((l - self._agent_location[0] + self.size/2)*pix_square_size, h*pix_square_size))
+                    canvas.blit(stone, ((l -1 - self._agent_location[0] + self.size/2)*pix_square_size, (h-2)*pix_square_size))
 
         for obstacle in self.pipes:
             pipe = pygame.image.load("./source/pipes.png")
             pipe = pygame.transform.scale(pipe, (pix_square_size*(obstacle[3] - obstacle[2]), pix_square_size*(obstacle[1] - obstacle[0])))
-            canvas.blit(pipe, ((obstacle[2] - self._agent_location[0] + self.size/2)*pix_square_size, obstacle[0]*pix_square_size))
+            canvas.blit(pipe, ((obstacle[2]-1 - self._agent_location[0] + self.size/2)*pix_square_size, (obstacle[0]-2)*pix_square_size))
                 
 
 
@@ -340,25 +356,15 @@ class GridWorldEnv(gym.Env):
         champi = pygame.image.load("./source/champi.png")
         champi = pygame.transform.scale(champi, (pix_square_size / 2, pix_square_size / 2))
         for monster in self.monsters:
-            canvas.blit(champi, ((monster.left - self._agent_location[0] + self.size/2)*pix_square_size, monster.top*pix_square_size))
+            canvas.blit(champi, ((monster.left - 1 - self._agent_location[0] + self.size/2)*pix_square_size, (monster.top-2)*pix_square_size))
         
-        self.canvas = np.transpose(
-                np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2)
-            )
+            
 
-        if self.render_mode == "human":
-            # The following line copies our drawings from `canvas` to the visible window
-            self.window.blit(canvas, canvas.get_rect())
-            pygame.event.pump()
-            pygame.display.update()
+        self.canvas = canvas
 
-            # We need to ensure that human-rendering occurs at the predefined framerate.
-            # The following line will automatically add a delay to keep the framerate stable.
-            self.clock.tick(self.metadata["render_fps"])
-        else:  # rgb_array
-            return np.transpose(
-                np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2)
-            )
+        return np.transpose(
+            np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2)
+        )
 
 
 
